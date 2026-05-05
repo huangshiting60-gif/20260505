@@ -10,10 +10,12 @@ const leftEye1 = [243, 190, 56, 28, 27, 29, 30, 247, 130, 25, 110, 24, 23, 22, 2
 const leftEye2 = [133, 173, 157, 158, 159, 160, 161, 246, 33, 7, 163, 144, 145, 153, 154, 155]; // 左眼輪廓 2
 const rightEye1 = [359, 467, 260, 259, 257, 258, 286, 414, 463, 341, 256, 252, 253, 254, 339, 255]; // 右眼輪廓 1
 const rightEye2 = [263, 466, 388, 387, 386, 385, 384, 398, 362, 382, 381, 380, 374, 373, 390, 249]; // 右眼輪廓 2
+const faceOvalIndices = [10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21, 54, 103, 67, 109]; // 臉部最外層輪廓
 
 function preload() {
   // 載入較新版本的 ml5.faceMesh 模型
-  faceMesh = ml5.faceMesh();
+  // 明確設定 flipped: false，避免與後續畫布的 scale(-1, 1) 產生雙重翻轉
+  faceMesh = ml5.faceMesh({ flipped: false });
 }
 
 function setup() {
@@ -93,6 +95,11 @@ function draw() {
   
   // 若攝影機影像已載入，計算維持原始比例的寬高 (以確保不變形)
   if (videoW > 0 && videoH > 0) {
+    // 同步 capture 元素尺寸為真實解析度，避免 ml5 取樣時讀取到黑邊或變形的影像而導致座標錯位
+    if (capture.width !== videoW || capture.height !== videoH) {
+      capture.size(videoW, videoH);
+    }
+
     let videoRatio = videoW / videoH;
     let targetRatio = imgW / imgH;
     if (videoRatio > targetRatio) {
@@ -115,25 +122,69 @@ function draw() {
     let cw = capture.width;
     let ch = capture.height;
     
-    stroke(255, 0, 0); // 線條採用紅色
-    strokeWeight(1);   // 線條粗細為 1
-    
-    // 將所有特徵點陣列組合，透過雙層迴圈統一繪製
-    let allFeatures = [faceIndices, innerFaceIndices, leftEye1, leftEye2, rightEye1, rightEye2];
-    
-    for (let feature of allFeatures) {
-      for (let i = 0; i < feature.length; i++) {
-        let ptA = keypoints[feature[i]];
-        let ptB = keypoints[feature[(i + 1) % feature.length]];
-        
-        let x1 = (ptA.x / cw - 0.5) * imgW;
-        let y1 = (ptA.y / ch - 0.5) * imgH;
-        let x2 = (ptB.x / cw - 0.5) * imgW;
-        let y2 = (ptB.y / ch - 0.5) * imgH;
-        
-        line(x1, y1, x2, y2);
-      }
+    // 轉換座標的輔助函式
+    let getPt = (index) => {
+      let p = keypoints[index];
+      return {
+        x: (p.x / cw - 0.5) * imgW,
+        y: (p.y / ch - 0.5) * imgH
+      };
+    };
+
+    // 計算臉部寬度與中心點 (利用兩側點 234, 454 與鼻尖 1)
+    let faceWidth = dist(getPt(234).x, getPt(234).y, getPt(454).x, getPt(454).y);
+    let faceCenter = getPt(1); 
+
+    // 1. 畫熊貓耳朵 (在臉的後方，先畫)
+    let earL = getPt(332);
+    let earR = getPt(103);
+    fill(0);
+    noStroke();
+    // 將耳朵以鼻尖為基準往外側上方稍微偏移
+    ellipse(earL.x + (earL.x - faceCenter.x) * 0.2, earL.y + (earL.y - faceCenter.y) * 0.2, faceWidth * 0.35);
+    ellipse(earR.x + (earR.x - faceCenter.x) * 0.2, earR.y + (earR.y - faceCenter.y) * 0.2, faceWidth * 0.35);
+
+    // 2. 畫白色的臉部底色 (使用臉部輪廓)
+    fill(255, 255, 255, 220); // 半透明白色
+    stroke(0);
+    strokeWeight(2);
+    beginShape();
+    for (let i = 0; i < faceOvalIndices.length; i++) {
+      let pt = getPt(faceOvalIndices[i]);
+      vertex(pt.x, pt.y);
     }
+    endShape(CLOSE);
+
+    // 3. 畫黑眼圈與眼裡的高光
+    // 計算左右眼中心
+    let leX = 0, leY = 0, reX = 0, reY = 0;
+    for (let i = 0; i < leftEye1.length; i++) {
+      leX += getPt(leftEye1[i]).x; leY += getPt(leftEye1[i]).y;
+      reX += getPt(rightEye1[i]).x; reY += getPt(rightEye1[i]).y;
+    }
+    leX /= leftEye1.length; leY /= leftEye1.length;
+    reX /= rightEye1.length; reY /= rightEye1.length;
+
+    noStroke();
+    // 左眼圈
+    push();
+    translate(leX, leY); rotate(-PI / 8);
+    fill(0, 0, 0, 230); ellipse(0, 0, faceWidth * 0.25, faceWidth * 0.32);
+    fill(255); ellipse(faceWidth * 0.03, -faceWidth * 0.03, faceWidth * 0.06); // 白色高光
+    pop();
+    // 右眼圈
+    push();
+    translate(reX, reY); rotate(PI / 8);
+    fill(0, 0, 0, 230); ellipse(0, 0, faceWidth * 0.25, faceWidth * 0.32);
+    fill(255); ellipse(-faceWidth * 0.03, -faceWidth * 0.03, faceWidth * 0.06); // 白色高光
+    pop();
+
+    // 4. 畫熊貓鼻子與嘴巴 (以鼻尖為基準)
+    fill(0);
+    ellipse(faceCenter.x, faceCenter.y + faceWidth * 0.02, faceWidth * 0.15, faceWidth * 0.1);
+    stroke(0); strokeWeight(3); noFill();
+    arc(faceCenter.x + faceWidth * 0.05, faceCenter.y + faceWidth * 0.1, faceWidth * 0.1, faceWidth * 0.08, 0, PI);
+    arc(faceCenter.x - faceWidth * 0.05, faceCenter.y + faceWidth * 0.1, faceWidth * 0.1, faceWidth * 0.08, 0, PI);
   }
   pop();
 
