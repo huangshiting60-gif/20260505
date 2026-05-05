@@ -165,26 +165,55 @@ function draw() {
     leX /= leftEye1.length; leY /= leftEye1.length;
     reX /= rightEye1.length; reY /= rightEye1.length;
 
+    // 計算臉部的傾斜角度 (Roll)，讓熊貓五官跟著頭部一起旋轉
+    let faceAngle = atan2(reY - leY, reX - leX);
+
     noStroke();
     // 左眼圈
     push();
-    translate(leX, leY); rotate(-PI / 8);
+    translate(leX, leY); rotate(faceAngle - PI / 8);
     fill(0, 0, 0, 230); ellipse(0, 0, faceWidth * 0.25, faceWidth * 0.32);
     fill(255); ellipse(faceWidth * 0.03, -faceWidth * 0.03, faceWidth * 0.06); // 白色高光
     pop();
     // 右眼圈
     push();
-    translate(reX, reY); rotate(PI / 8);
+    translate(reX, reY); rotate(faceAngle + PI / 8);
     fill(0, 0, 0, 230); ellipse(0, 0, faceWidth * 0.25, faceWidth * 0.32);
     fill(255); ellipse(-faceWidth * 0.03, -faceWidth * 0.03, faceWidth * 0.06); // 白色高光
     pop();
 
     // 4. 畫熊貓鼻子與嘴巴 (以鼻尖為基準)
+    push();
+    translate(faceCenter.x, faceCenter.y);
+    rotate(faceAngle); // 讓鼻子與嘴巴跟著臉部旋轉
+    
+    // 計算真實嘴巴的張開程度
+    let pt13 = getPt(13); // 上內唇
+    let pt14 = getPt(14); // 下內唇
+    let mouthOpen = dist(pt13.x, pt13.y, pt14.x, pt14.y);
+    // 將張開程度映射到熊貓嘴巴的高度
+    let pandaMouthH = map(mouthOpen, 0, faceWidth * 0.1, 0, faceWidth * 0.25, true);
+    
+    if (pandaMouthH > faceWidth * 0.02) {
+      fill(0);
+      noStroke();
+      // 畫張開的嘴巴內部 (黑色半圓)
+      arc(0, faceWidth * 0.1, faceWidth * 0.2, pandaMouthH, 0, PI);
+      // 加一點紅紅的舌頭增加可愛感
+      fill(255, 100, 100);
+      arc(0, faceWidth * 0.1 + pandaMouthH * 0.2, faceWidth * 0.12, pandaMouthH * 0.6, 0, PI);
+    }
+
+    // 鼻子
     fill(0);
-    ellipse(faceCenter.x, faceCenter.y + faceWidth * 0.02, faceWidth * 0.15, faceWidth * 0.1);
+    noStroke();
+    ellipse(0, faceWidth * 0.02, faceWidth * 0.15, faceWidth * 0.1);
+    
+    // 嘴唇 (W 形狀)
     stroke(0); strokeWeight(3); noFill();
-    arc(faceCenter.x + faceWidth * 0.05, faceCenter.y + faceWidth * 0.1, faceWidth * 0.1, faceWidth * 0.08, 0, PI);
-    arc(faceCenter.x - faceWidth * 0.05, faceCenter.y + faceWidth * 0.1, faceWidth * 0.1, faceWidth * 0.08, 0, PI);
+    arc(faceWidth * 0.05, faceWidth * 0.1, faceWidth * 0.1, faceWidth * 0.08, 0, PI);
+    arc(-faceWidth * 0.05, faceWidth * 0.1, faceWidth * 0.1, faceWidth * 0.08, 0, PI);
+    pop();
   }
   pop();
 
