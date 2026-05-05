@@ -80,20 +80,35 @@ function draw() {
   text("414730175", width / 2, 30); // 放置於上方中間，距離頂部 30 像素
   pop();
 
+  // 取得畫布 50% 範圍與攝影機真實的解析度
+  let imgW = width * 0.5;
+  let imgH = height * 0.5;
+  let videoW = capture.elt.videoWidth;
+  let videoH = capture.elt.videoHeight;
+  
+  // 若攝影機影像已載入，計算維持原始比例的寬高 (以確保不變形)
+  if (videoW > 0 && videoH > 0) {
+    let videoRatio = videoW / videoH;
+    let targetRatio = imgW / imgH;
+    if (videoRatio > targetRatio) {
+      imgH = imgW / videoRatio; // 影像比較寬：配合寬度，縮小高度
+    } else {
+      imgW = imgH * videoRatio; // 影像比較高：配合高度，縮小寬度
+    }
+  }
+
   // 將座標系移至中心並做水平翻轉，讓畫面左右顛倒
   push();
   translate(width / 2, height / 2);
   scale(-1, 1);
   
-  let imgW = width * 0.5;
-  let imgH = height * 0.5;
   image(capture, 0, 0, imgW, imgH);
 
   // 繪製臉部辨識指定的特徵點線條
-  if (faces.length > 0 && capture.width > 0) {
+  if (faces.length > 0 && videoW > 0) {
     let keypoints = faces[0].keypoints;
-    let scaleX = imgW / capture.width;
-    let scaleY = imgH / capture.height;
+    let scaleX = imgW / videoW;
+    let scaleY = imgH / videoH;
     
     stroke(255, 0, 0); // 線條採用紅色
     strokeWeight(13);  // 線條粗細為 13
@@ -102,11 +117,11 @@ function draw() {
       let ptA = keypoints[faceIndices[i]];
       let ptB = keypoints[faceIndices[(i + 1) % faceIndices.length]];
       
-      // 將座標轉換為對應於縮放後畫布影像的位置
-      let x1 = (ptA.x - capture.width / 2) * scaleX;
-      let y1 = (ptA.y - capture.height / 2) * scaleY;
-      let x2 = (ptB.x - capture.width / 2) * scaleX;
-      let y2 = (ptB.y - capture.height / 2) * scaleY;
+      // 將座標轉換為對應於縮放後畫布真實影像比例的位置
+      let x1 = (ptA.x - videoW / 2) * scaleX;
+      let y1 = (ptA.y - videoH / 2) * scaleY;
+      let x2 = (ptB.x - videoW / 2) * scaleX;
+      let y2 = (ptB.y - videoH / 2) * scaleY;
       
       line(x1, y1, x2, y2);
     }
@@ -114,7 +129,7 @@ function draw() {
   pop();
 
   // 在攝影機影像上方繪製窗戶邊框
-  drawWindowFrame(width / 2, height / 2, width * 0.5, height * 0.5);
+  drawWindowFrame(width / 2, height / 2, imgW, imgH);
 
   // 調整物件位置建立空間感與故事性
   drawSofa(width * 0.82, height * 0.82);      // 沙發移至右下角落地
