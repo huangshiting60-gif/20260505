@@ -2,6 +2,14 @@ let capture;
 let particles = []; // 儲存背景漂浮粒子的陣列
 let zzzParticles = []; // 儲存貓咪睡覺打呼的 Zzz 粒子
 let aromaParticles = []; // 儲存咖啡香氣粒子
+let faceMesh; // 宣告 faceMesh 模型變數
+let faces = []; // 儲存辨識結果
+const faceIndices = [409, 270, 269, 267, 0, 37, 39, 40, 185, 61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291]; // 指定的嘴唇外輪廓特徵點
+
+function preload() {
+  // 載入較新版本的 ml5.faceMesh 模型
+  faceMesh = ml5.faceMesh();
+}
 
 function setup() {
   // 第一步驟：產生全螢幕的畫布
@@ -14,6 +22,9 @@ function setup() {
   // 設定影像繪製模式為中心點
   imageMode(CENTER);
 
+  // 啟動 faceMesh 辨識，當辨識到臉部時觸發 gotFaces 函式
+  faceMesh.detectStart(capture, gotFaces);
+
   // 初始化背景漂浮粒子
   for (let i = 0; i < 60; i++) {
     particles.push({
@@ -24,6 +35,11 @@ function setup() {
       speedY: random(-2, -0.5)
     });
   }
+}
+
+// 儲存辨識到的臉部資料
+function gotFaces(results) {
+  faces = results;
 }
 
 function draw() {
@@ -68,7 +84,33 @@ function draw() {
   push();
   translate(width / 2, height / 2);
   scale(-1, 1);
-  image(capture, 0, 0, width * 0.5, height * 0.5);
+  
+  let imgW = width * 0.5;
+  let imgH = height * 0.5;
+  image(capture, 0, 0, imgW, imgH);
+
+  // 繪製臉部辨識指定的特徵點線條
+  if (faces.length > 0 && capture.width > 0) {
+    let keypoints = faces[0].keypoints;
+    let scaleX = imgW / capture.width;
+    let scaleY = imgH / capture.height;
+    
+    stroke(255, 0, 0); // 線條採用紅色
+    strokeWeight(13);  // 線條粗細為 13
+    
+    for (let i = 0; i < faceIndices.length; i++) {
+      let ptA = keypoints[faceIndices[i]];
+      let ptB = keypoints[faceIndices[(i + 1) % faceIndices.length]];
+      
+      // 將座標轉換為對應於縮放後畫布影像的位置
+      let x1 = (ptA.x - capture.width / 2) * scaleX;
+      let y1 = (ptA.y - capture.height / 2) * scaleY;
+      let x2 = (ptB.x - capture.width / 2) * scaleX;
+      let y2 = (ptB.y - capture.height / 2) * scaleY;
+      
+      line(x1, y1, x2, y2);
+    }
+  }
   pop();
 
   // 在攝影機影像上方繪製窗戶邊框
