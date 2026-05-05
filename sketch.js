@@ -5,6 +5,11 @@ let aromaParticles = []; // 儲存咖啡香氣粒子
 let faceMesh; // 宣告 faceMesh 模型變數
 let faces = []; // 儲存辨識結果
 const faceIndices = [409, 270, 269, 267, 0, 37, 39, 40, 185, 61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291]; // 指定的嘴唇外輪廓特徵點
+const innerFaceIndices = [76, 77, 90, 180, 85, 16, 315, 404, 320, 307, 306, 408, 304, 303, 302, 11, 72, 73, 74, 184]; // 指定的嘴唇內輪廓特徵點
+const leftEye1 = [243, 190, 56, 28, 27, 29, 30, 247, 130, 25, 110, 24, 23, 22, 26, 112]; // 左眼輪廓 1
+const leftEye2 = [133, 173, 157, 158, 159, 160, 161, 246, 33, 7, 163, 144, 145, 153, 154, 155]; // 左眼輪廓 2
+const rightEye1 = [359, 467, 260, 259, 257, 258, 286, 414, 463, 341, 256, 252, 253, 254, 339, 255]; // 右眼輪廓 1
+const rightEye2 = [263, 466, 388, 387, 386, 385, 384, 398, 362, 382, 381, 380, 374, 373, 390, 249]; // 右眼輪廓 2
 
 function preload() {
   // 載入較新版本的 ml5.faceMesh 模型
@@ -107,23 +112,27 @@ function draw() {
   // 繪製臉部辨識指定的特徵點線條
   if (faces.length > 0 && videoW > 0) {
     let keypoints = faces[0].keypoints;
-    let scaleX = imgW / videoW;
-    let scaleY = imgH / videoH;
+    let cw = capture.width;
+    let ch = capture.height;
     
     stroke(255, 0, 0); // 線條採用紅色
-    strokeWeight(13);  // 線條粗細為 13
+    strokeWeight(1);   // 線條粗細為 1
     
-    for (let i = 0; i < faceIndices.length; i++) {
-      let ptA = keypoints[faceIndices[i]];
-      let ptB = keypoints[faceIndices[(i + 1) % faceIndices.length]];
-      
-      // 將座標轉換為對應於縮放後畫布真實影像比例的位置
-      let x1 = (ptA.x - videoW / 2) * scaleX;
-      let y1 = (ptA.y - videoH / 2) * scaleY;
-      let x2 = (ptB.x - videoW / 2) * scaleX;
-      let y2 = (ptB.y - videoH / 2) * scaleY;
-      
-      line(x1, y1, x2, y2);
+    // 將所有特徵點陣列組合，透過雙層迴圈統一繪製
+    let allFeatures = [faceIndices, innerFaceIndices, leftEye1, leftEye2, rightEye1, rightEye2];
+    
+    for (let feature of allFeatures) {
+      for (let i = 0; i < feature.length; i++) {
+        let ptA = keypoints[feature[i]];
+        let ptB = keypoints[feature[(i + 1) % feature.length]];
+        
+        let x1 = (ptA.x / cw - 0.5) * imgW;
+        let y1 = (ptA.y / ch - 0.5) * imgH;
+        let x2 = (ptB.x / cw - 0.5) * imgW;
+        let y2 = (ptB.y / ch - 0.5) * imgH;
+        
+        line(x1, y1, x2, y2);
+      }
     }
   }
   pop();
